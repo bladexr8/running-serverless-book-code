@@ -5,9 +5,9 @@ const htmlResponse = require('./html-response');
 const aws = require('aws-sdk');
 const s3 = new aws.S3();
 
-exports.lambdaHandler = async((event, context) => {
+exports.lambdaHandler = async (event, context) => {
     const params = {
-        Bucket: ProcessingInstruction.env.UPLOAD_S3_BUCKET,
+        Bucket: process.env.UPLOAD_S3_BUCKET,
         Key: event.queryStringParameters.key,
         Expires: 300
     };
@@ -17,9 +17,9 @@ exports.lambdaHandler = async((event, context) => {
         <html>
         <body>
             <h1>Thanks</h1>
-            <a href="${url}">check your upload</a> (ink expires in 5 minutes)
+            <a href="${url}">check your upload</a> (link expires in 5 minutes)
         </body>
         </html>
     `;
     return htmlResponse(responseText);
-})
+};

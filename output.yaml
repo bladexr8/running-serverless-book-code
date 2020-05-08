@@ -17,6 +17,12 @@ Parameters:
     MaxLength: 10
     MinLength: 1
     ConstraintDescription: 1-10 Latin letters
+  UploadLimitInMB:
+    Type: Number
+    Default: 5
+    Description: Maximum upload size in megabytes
+    MinValue: 1
+    MaxValue: 100
 Resources:
   WebApi:
     Type: AWS::Serverless::Api
@@ -25,10 +31,15 @@ Resources:
         Ref: AppStage
   UploadS3Bucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
   ShowFormFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://spm-sam-project-deployment/a1341975ba1f3a1c65f20a94164ba46d
+      CodeUri: s3://spm-sam-project-deployment/df345be7f28f642d7f20e73800276859
       Handler: show-form.lambdaHandler
       Runtime: nodejs12.x
       Events:
@@ -39,18 +50,28 @@ Resources:
             Method: get
             RestApiId:
               Ref: WebApi
-  ProcessFormFunction:
+      Environment:
+        Variables:
+          UPLOAD_S3_BUCKET:
+            Ref: UploadS3Bucket
+          UPLOAD_LIMIT_IN_MB:
+            Ref: UploadLimitInMB
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName:
+            Ref: UploadS3Bucket
+  ConfirmUploadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://spm-sam-project-deployment/108f60c9f7447d93174b9f51844c3706
-      Handler: process-form.lambdaHandler
+      CodeUri: s3://spm-sam-project-deployment/3f70e2aaa695cbb0b08d99a78963aa15
+      Handler: confirm-upload.lambdaHandler
       Runtime: nodejs12.x
       Events:
-        SubmitForm:
+        ConfirmForm:
           Type: Api
           Properties:
-            Path: /
-            Method: post
+            Path: /confirm
+            Method: get
             RestApiId:
               Ref: WebApi
       Environment:
@@ -58,7 +79,7 @@ Resources:
           UPLOAD_S3_BUCKET:
             Ref: UploadS3Bucket
       Policies:
-      - S3FullAccessPolicy:
+      - S3ReadPolicy:
           BucketName:
             Ref: UploadS3Bucket
 Outputs:
@@ -78,17 +99,17 @@ Outputs:
       Fn::GetAtt:
       - ShowFormFunctionRole
       - Arn
-  ProcessFormFunction:
-    Description: Process Form Lambda Function ARN
+  ConfirmUploadFunction:
+    Description: Confirm Upload Form Lambda Function ARN
     Value:
       Fn::GetAtt:
-      - ProcessFormFunction
+      - ConfirmUploadFunction
       - Arn
-  ProcessFormFunctionIamRole:
-    Description: Implicit IAM Role created for ProcessForm function
+  ConfirmUploadFunctionIamRole:
+    Description: Implicit IAM Role created for Cofirm Upload function
     Value:
       Fn::GetAtt:
-      - ProcessFormFunctionRole
+      - ConfirmUploadFunctionRole
       - Arn
   uploadBucket:
     Description: S3 Bucket for user information

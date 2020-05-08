@@ -1,6 +1,6 @@
 module.exports = function buildForm(form) {
     const fieldNames = Object.keys(form.fields);
-    const fields = firldNames.map(field => 
+    const fields = fieldNames.map(field => 
         `<input type="hidden" name="${field}" value="${form.fields[field]}"/>`).join('\n');
     return `
         <html>

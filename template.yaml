@@ -19,12 +19,12 @@ Parameters:
     MaxLength: 10
     MinLength: 1
     ConstraintDescription: "1-10 Latin letters"
-  UploadLimitInMb:
+  UploadLimitInMB:
     Type: Number
     Default: 5
     Description: Maximum upload size in megabytes
     MinValue: 1
-    MaxVaue: 100
+    MaxValue: 100
 
 Resources:
   # explicitly create API Gateway, rather than auto-create
@@ -95,12 +95,12 @@ Outputs:
   ShowFormFunctionIamRole:
     Description: "Implicit IAM Role created for ShowForm function"
     Value: !GetAtt ShowFormFunctionRole.Arn
-  ProcessFormFunction:
-    Description: "Process Form Lambda Function ARN"
-    Value: !GetAtt ProcessFormFunction.Arn
-  ProcessFormFunctionIamRole:
-    Description: "Implicit IAM Role created for ProcessForm function"
-    Value: !GetAtt ProcessFormFunctionRole.Arn
+  ConfirmUploadFunction:
+    Description: "Confirm Upload Form Lambda Function ARN"
+    Value: !GetAtt ConfirmUploadFunction.Arn
+  ConfirmUploadFunctionIamRole:
+    Description: "Implicit IAM Role created for Cofirm Upload function"
+    Value: !GetAtt ConfirmUploadFunctionRole.Arn
   uploadBucket:
     Description: "S3 Bucket for user information"
     Value: !Ref UploadS3Bucket
