@@ -41,6 +41,14 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+  # S3 bucket to store image thumbnails
+  ThumbnailsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
   ShowFormFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -77,10 +85,48 @@ Resources:
             RestApiId: !Ref WebApi
       Environment:
         Variables:
-          UPLOAD_S3_BUCKET: !Ref UploadS3Bucket
+          UPLOAD_S3_BUCKET: !Ref ThumbnailsS3Bucket
       Policies:
         - S3ReadPolicy:
-            BucketName: !Ref UploadS3Bucket
+            BucketName: !Ref ThumbnailsS3Bucket
+  ConvertFileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: image-conversion/
+      Handler: index.handler
+      Runtime: nodejs12.x    
+      Events:  
+        FileUploaded:
+          Type: S3
+          Properties:
+            Bucket: !Ref UploadS3Bucket
+            Events: s3:ObjectCreated:*
+      Timeout: 600
+      Environment:
+        Variables:
+          OUTPUT_BUCKET: !Ref ThumbnailsS3Bucket
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: !Ref ThumbnailsS3Bucket
+  # policy to allow ConvertFunction to read from
+  # uploads S3 bucket. Avoids circular dependency
+  # where the upload bucket depends on the
+  # conversion function, which depends on the role,
+  # which depends on the bucket
+  ConvertFunctionCanReadUploads:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ConvertFunctionCanReadUploads
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: 
+              - "s3:GetObject"
+            Resource:
+              - !Sub "${UploadS3Bucket.Arn}/*"
+      Roles:
+        - !Ref ConvertFileFunctionRole
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
@@ -102,5 +148,8 @@ Outputs:
     Description: "Implicit IAM Role created for Cofirm Upload function"
     Value: !GetAtt ConfirmUploadFunctionRole.Arn
   uploadBucket:
-    Description: "S3 Bucket for user information"
+    Description: "S3 Bucket for uploaded files"
     Value: !Ref UploadS3Bucket
+  thumbnailsBucket:
+    Description: "S3 Bucket for thumbnails"
+    Value: !Ref ThumbnailsS3Bucket

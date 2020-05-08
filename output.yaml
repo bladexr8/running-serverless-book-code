@@ -36,6 +36,13 @@ Resources:
         ServerSideEncryptionConfiguration:
         - ServerSideEncryptionByDefault:
             SSEAlgorithm: AES256
+  ThumbnailsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
   ShowFormFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -77,11 +84,47 @@ Resources:
       Environment:
         Variables:
           UPLOAD_S3_BUCKET:
-            Ref: UploadS3Bucket
+            Ref: ThumbnailsS3Bucket
       Policies:
       - S3ReadPolicy:
           BucketName:
-            Ref: UploadS3Bucket
+            Ref: ThumbnailsS3Bucket
+  ConvertFileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://spm-sam-project-deployment/30d8beda465fd71306d69c77145f7ede
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Events:
+        FileUploaded:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: UploadS3Bucket
+            Events: s3:ObjectCreated:*
+      Timeout: 600
+      Environment:
+        Variables:
+          OUTPUT_BUCKET:
+            Ref: ThumbnailsS3Bucket
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName:
+            Ref: ThumbnailsS3Bucket
+  ConvertFunctionCanReadUploads:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ConvertFunctionCanReadUploads
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          Resource:
+          - Fn::Sub: ${UploadS3Bucket.Arn}/*
+      Roles:
+      - Ref: ConvertFileFunctionRole
 Outputs:
   UserFormApi:
     Description: API Gateway endpoint URL
@@ -112,6 +155,10 @@ Outputs:
       - ConfirmUploadFunctionRole
       - Arn
   uploadBucket:
-    Description: S3 Bucket for user information
+    Description: S3 Bucket for uploaded files
     Value:
       Ref: UploadS3Bucket
+  thumbnailsBucket:
+    Description: S3 Bucket for thumbnails
+    Value:
+      Ref: ThumbnailsS3Bucket
