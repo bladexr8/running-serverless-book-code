@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'app
+
+  Sample SAM Template for app
+
+  '
+Globals:
+  Function:
+    Timeout: 3
+Parameters:
+  AppStage:
+    Type: String
+    Default: api
+    Description: API Gateway Stage, used as a prefix for the endpoint URLs
+    AllowedPattern: ^[A-Za-z]+$
+    MaxLength: 10
+    MinLength: 1
+    ConstraintDescription: 1-10 Latin letters
+Resources:
+  WebApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName:
+        Ref: AppStage
+  UploadS3Bucket:
+    Type: AWS::S3::Bucket
+  ShowFormFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://spm-sam-project-deployment/a1341975ba1f3a1c65f20a94164ba46d
+      Handler: show-form.lambdaHandler
+      Runtime: nodejs12.x
+      Events:
+        ShowForm:
+          Type: Api
+          Properties:
+            Path: /
+            Method: get
+            RestApiId:
+              Ref: WebApi
+  ProcessFormFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://spm-sam-project-deployment/108f60c9f7447d93174b9f51844c3706
+      Handler: process-form.lambdaHandler
+      Runtime: nodejs12.x
+      Events:
+        SubmitForm:
+          Type: Api
+          Properties:
+            Path: /
+            Method: post
+            RestApiId:
+              Ref: WebApi
+      Environment:
+        Variables:
+          UPLOAD_S3_BUCKET:
+            Ref: UploadS3Bucket
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName:
+            Ref: UploadS3Bucket
+Outputs:
+  UserFormApi:
+    Description: API Gateway endpoint URL
+    Value:
+      Fn::Sub: https://${WebApi}.execute-api.${AWS::Region}.amazonaws.com/${AppStage}/
+  ShowFormFunction:
+    Description: Show Form Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - ShowFormFunction
+      - Arn
+  ShowFormFunctionIamRole:
+    Description: Implicit IAM Role created for ShowForm function
+    Value:
+      Fn::GetAtt:
+      - ShowFormFunctionRole
+      - Arn
+  ProcessFormFunction:
+    Description: Process Form Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - ProcessFormFunction
+      - Arn
+  ProcessFormFunctionIamRole:
+    Description: Implicit IAM Role created for ProcessForm function
+    Value:
+      Fn::GetAtt:
+      - ProcessFormFunctionRole
+      - Arn
+  uploadBucket:
+    Description: S3 Bucket for user information
+    Value:
+      Ref: UploadS3Bucket
