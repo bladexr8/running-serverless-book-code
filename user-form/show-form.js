@@ -1,6 +1,6 @@
 // const axios = require('axios')
 // const url = 'http://checkip.amazonaws.com/';
-let response;
+// let response;
 
 /**
  *
@@ -16,24 +16,34 @@ let response;
  */
 
 const htmlResponse = require('./html-response');
-const formHtml = `
-    <html>
-    <head>
-        <meta charset="utf-8" />
-    </head>
-    <body>
-        <form method="POST">
-            Please enter your name:
-            <input type="text" name="name" />
-            <br />
-            <input type="submit" />
-        </form>
-    </body>
-    </html>
-`;
+const buildForm = require('./build-form');
+const aws = require('aws-sdk');
+const s3 = new aws.S3();
+const uploadLimitInMB = parseInt(process.env.UPLOAD_LIMIT_IN_MB);
+
 
 exports.lambdaHandler = async (event, context) => {
     console.log(JSON.stringify(event, null, 2));
+
+    // set up info for upload form
+    const apiHost = event.requestContext.domainName,
+        prefix = event.requestContext.stage,
+        redirectUrl = `https://${apiHost}/${prefix}/confirm`,
+        params = {
+            Bucket: process.env.UPLOAD_S3_BUCKET,
+            Expires: 300,
+            Conditions: [
+                ['content-length-range', 1, uploadLimitInMB * 1000000]
+            ],
+            Fields: {
+                success_action_redirect: redirectUrl,
+                acl: 'private',
+                key: context.awsRequestId + '.png'
+            }
+        },
+        // get a presigned S3 upload request
+        form = s3.createPresignedPost(params);
    
-    return htmlResponse(formHtml);
+    // send back a pre-built form for S3 upload
+    return htmlResponse(buildForm(form));
 };

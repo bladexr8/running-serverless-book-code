@@ -19,6 +19,12 @@ Parameters:
     MaxLength: 10
     MinLength: 1
     ConstraintDescription: "1-10 Latin letters"
+  UploadLimitInMb:
+    Type: Number
+    Default: 5
+    Description: Maximum upload size in megabytes
+    MinValue: 1
+    MaxVaue: 100
 
 Resources:
   # explicitly create API Gateway, rather than auto-create
@@ -27,9 +33,14 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref AppStage
-  # S3 Bucket to persist information
+  # S3 Bucket to persist information with server side encryption
   UploadS3Bucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
   ShowFormFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -44,24 +55,31 @@ Resources:
             Path: /
             Method: get
             RestApiId: !Ref WebApi
-  ProcessFormFunction:
+      Environment:
+        Variables:
+          UPLOAD_S3_BUCKET: !Ref UploadS3Bucket
+          UPLOAD_LIMIT_IN_MB: !Ref UploadLimitInMB
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: !Ref UploadS3Bucket
+  ConfirmUploadFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: user-form/
-      Handler: process-form.lambdaHandler
+      Handler: confirm-upload.lambdaHandler
       Runtime: nodejs12.x    
       Events:  
-        SubmitForm:
+        ConfirmForm:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
-            Path: /
-            Method: post
+            Path: /confirm
+            Method: get
             RestApiId: !Ref WebApi
       Environment:
         Variables:
           UPLOAD_S3_BUCKET: !Ref UploadS3Bucket
       Policies:
-        - S3FullAccessPolicy:
+        - S3ReadPolicy:
             BucketName: !Ref UploadS3Bucket
 
 Outputs:
