@@ -27,6 +27,12 @@ Parameters:
     Type: String
     Description: Email address for operational notifications
     Default: ''
+  ThumbnailWidth:
+    Type: Number
+    Default: 300
+    Description: Thumbnail width in pixels
+    MinValue: 10
+    MaxValue: 1000
 Conditions:
   ContactEmailSet:
     Fn::Not:
@@ -102,7 +108,7 @@ Resources:
   ConvertFileFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://spm-sam-project-deployment/30d8beda465fd71306d69c77145f7ede
+      CodeUri: s3://spm-sam-project-deployment/94e3b8444f74ebeec53d952d3b9c0b1e
       Handler: index.handler
       Runtime: nodejs12.x
       Events:
@@ -113,10 +119,13 @@ Resources:
               Ref: UploadS3Bucket
             Events: s3:ObjectCreated:*
       Timeout: 600
+      MemorySize: 1024
       Environment:
         Variables:
           OUTPUT_BUCKET:
             Ref: ThumbnailsS3Bucket
+          THUMB_WIDTH:
+            Ref: ThumbnailWidth
       Policies:
       - S3FullAccessPolicy:
           BucketName:
@@ -125,6 +134,10 @@ Resources:
         Type: SNS
         TargetArn:
           Ref: NotifyAdmins
+      Layers:
+      - Fn::GetAtt:
+        - ImageMagick
+        - Outputs.LayerVersion
   ConvertFunctionCanReadUploads:
     Type: AWS::IAM::Policy
     Properties:
@@ -150,6 +163,12 @@ Resources:
       Protocol: email
       TopicArn:
         Ref: NotifyAdmins
+  ImageMagick:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:145266761615:applications/image-magick-lambda-layer
+        SemanticVersion: 1.0.0
 Outputs:
   UserFormApi:
     Description: API Gateway endpoint URL

@@ -10,6 +10,8 @@ Globals:
   Function:
     Timeout: 3
 
+# configurable parameters. Can be
+# overridden during deployment
 Parameters:
   AppStage:
     Type: String
@@ -29,6 +31,12 @@ Parameters:
     Type: String
     Description: Email address for operational notifications
     Default: ''
+  ThumbnailWidth:
+    Type: Number
+    Default: 300
+    Description: Thumbnail width in pixels
+    MinValue: 10
+    MaxValue: 1000
 
 # Conditions to activate/de-activate resources
 Conditions:
@@ -111,15 +119,19 @@ Resources:
             Bucket: !Ref UploadS3Bucket
             Events: s3:ObjectCreated:*
       Timeout: 600
+      MemorySize: 1024
       Environment:
         Variables:
           OUTPUT_BUCKET: !Ref ThumbnailsS3Bucket
+          THUMB_WIDTH: !Ref ThumbnailWidth
       Policies:
         - S3FullAccessPolicy:
             BucketName: !Ref ThumbnailsS3Bucket
       DeadLetterQueue:
         Type: SNS
         TargetArn: !Ref NotifyAdmins
+      Layers:
+        - !GetAtt ImageMagick.Outputs.LayerVersion
   
   # policy to allow ConvertFunction to read from
   # uploads S3 bucket. Avoids circular dependency
@@ -154,6 +166,19 @@ Resources:
       Endpoint: !Ref ContactEmailAddress
       Protocol: email
       TopicArn: !Ref NotifyAdmins
+
+  # add ImageMagick from the Serverless Application
+  # Repository. This will be made available as a layer
+  # Layer will appear in the /opt directory of the
+  # Lambda runtime
+  # https://serverlessrepo.aws.amazon.com/applications
+  # https://github.com/serverlesspub/imagemagick-aws-lambda-2
+  ImageMagick:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:145266761615:applications/image-magick-lambda-layer
+        SemanticVersion: 1.0.0
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
