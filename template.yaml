@@ -4,6 +4,11 @@ Description: >
   app
 
   Sample SAM Template for app
+
+# SAM Build and Packaging Commands
+# $ sam build
+# $ sam package --s3-bucket spm-sam-project-deployment --output-template-file output.yaml
+# $ sam deploy --template-file output.yaml --stack-name sam-test-1 --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
   
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
@@ -50,6 +55,8 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref AppStage
+      # support CORS from Web Assets S3 Bucket
+      Cors: !Sub "'${WebAssetsS3Bucket.WebsiteURL}'"
   # S3 Bucket to persist information with server side encryption
   UploadS3Bucket:
     Type: AWS::S3::Bucket
@@ -58,6 +65,16 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+            - "*"
+            AllowedMethods:
+              - POST
+            AllowedOrigins:
+              - !GetAtt WebAssetsS3Bucket.WebsiteURL
+            MaxAge: 3600
+
   # S3 bucket to store image thumbnails
   ThumbnailsS3Bucket:
     Type: AWS::S3::Bucket
@@ -66,6 +83,23 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+            - "*"
+            AllowedMethods:
+              - POST
+            AllowedOrigins:
+              - !GetAtt WebAssetsS3Bucket.WebsiteURL
+            MaxAge: 3600
+  # Web Assets bucket
+  WebAssetsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      WebsiteConfiguration:
+        ErrorDocument: 404.html
+        IndexDocument: index.html
+
   ShowFormFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -84,26 +118,11 @@ Resources:
         Variables:
           UPLOAD_S3_BUCKET: !Ref UploadS3Bucket
           UPLOAD_LIMIT_IN_MB: !Ref UploadLimitInMB
+          CORS_ORIGIN: !GetAtt WebAssetsS3Bucket.WebsiteURL
+          THUMBNAILS_S3_BUCKET: !Ref ThumbnailsS3Bucket
       Policies:
         - S3FullAccessPolicy:
             BucketName: !Ref UploadS3Bucket
-  ConfirmUploadFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: user-form/
-      Handler: confirm-upload.lambdaHandler
-      Runtime: nodejs12.x    
-      Events:  
-        ConfirmForm:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
-          Properties:
-            Path: /confirm
-            Method: get
-            RestApiId: !Ref WebApi
-      Environment:
-        Variables:
-          UPLOAD_S3_BUCKET: !Ref ThumbnailsS3Bucket
-      Policies:
         - S3ReadPolicy:
             BucketName: !Ref ThumbnailsS3Bucket
   ConvertFileFunction:
@@ -180,6 +199,39 @@ Resources:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:145266761615:applications/image-magick-lambda-layer
         SemanticVersion: 1.0.0
 
+  # Support for Deploying Files to S3
+  DeployToS3:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:375983427419:applications/deploy-to-s3
+        SemanticVersion: 1.0.0
+  SiteSource:
+    Type: AWS::Serverless::Function
+    Properties:
+      Layers:
+        - !GetAtt DeployToS3.Outputs.Arn
+      CodeUri: web-site/
+      AutoPublishAlias: production
+      Runtime: python3.7
+      Handler: deployer.resource_handler
+      Timeout: 600
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: !Ref WebAssetsS3Bucket
+  DeploymentResource:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt SiteSource.Arn
+      Version: !Ref "SiteSource.Version"
+      TargetBucket: !Ref WebAssetsS3Bucket
+      Substitutions:
+        FilePattern: "*.html"
+        Values:
+          API_URL: !Sub "https://${WebApi}.execute-api.${AWS::Region}.amazonaws.com/${AppStage}/"
+      Acl: 'public-read'
+      CacheControlMaxAge: 600
+
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM
@@ -193,15 +245,15 @@ Outputs:
   ShowFormFunctionIamRole:
     Description: "Implicit IAM Role created for ShowForm function"
     Value: !GetAtt ShowFormFunctionRole.Arn
-  ConfirmUploadFunction:
-    Description: "Confirm Upload Form Lambda Function ARN"
-    Value: !GetAtt ConfirmUploadFunction.Arn
-  ConfirmUploadFunctionIamRole:
-    Description: "Implicit IAM Role created for Cofirm Upload function"
-    Value: !GetAtt ConfirmUploadFunctionRole.Arn
   uploadBucket:
     Description: "S3 Bucket for uploaded files"
     Value: !Ref UploadS3Bucket
   thumbnailsBucket:
     Description: "S3 Bucket for thumbnails"
     Value: !Ref ThumbnailsS3Bucket
+  webAssetsBucket:
+    Description: "S3 Bucket for Web Assets"
+    Value: !Ref WebAssetsS3Bucket
+  WebUrl:
+    Description: "Public web URL"
+    Value: !GetAtt WebAssetsS3Bucket.WebsiteURL
