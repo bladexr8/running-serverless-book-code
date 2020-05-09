@@ -25,6 +25,15 @@ Parameters:
     Description: Maximum upload size in megabytes
     MinValue: 1
     MaxValue: 100
+  ContactEmailAddress:
+    Type: String
+    Description: Email address for operational notifications
+    Default: ''
+
+# Conditions to activate/de-activate resources
+Conditions:
+  # check ContactEmailAddress isn't a blank string
+  ContactEmailSet: !Not [ !Equals ['', !Ref ContactEmailAddress]]
 
 Resources:
   # explicitly create API Gateway, rather than auto-create
@@ -108,6 +117,10 @@ Resources:
       Policies:
         - S3FullAccessPolicy:
             BucketName: !Ref ThumbnailsS3Bucket
+      DeadLetterQueue:
+        Type: SNS
+        TargetArn: !Ref NotifyAdmins
+  
   # policy to allow ConvertFunction to read from
   # uploads S3 bucket. Avoids circular dependency
   # where the upload bucket depends on the
@@ -127,6 +140,20 @@ Resources:
               - !Sub "${UploadS3Bucket.Arn}/*"
       Roles:
         - !Ref ConvertFileFunctionRole
+  
+  # SNS Topic for Dead Letter Queue
+  NotifyAdmins:
+    Type: AWS::SNS::Topic
+
+  # set up subscription to SNS Dead Letter Queue
+  # if Contact Email set
+  AlarmNotifyOpsSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: ContactEmailSet
+    Properties:
+      Endpoint: !Ref ContactEmailAddress
+      Protocol: email
+      TopicArn: !Ref NotifyAdmins
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
