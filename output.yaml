@@ -77,7 +77,7 @@ Resources:
         - AllowedHeaders:
           - '*'
           AllowedMethods:
-          - POST
+          - GET
           AllowedOrigins:
           - Fn::GetAtt:
             - WebAssetsS3Bucket
@@ -92,7 +92,7 @@ Resources:
   ShowFormFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://spm-sam-project-deployment/7fed0cd6032ddc28c2273d528fb86492
+      CodeUri: s3://spm-sam-project-deployment/5c7ae0357ae4baf956d643970030bb6d
       Handler: show-form.lambdaHandler
       Runtime: nodejs12.x
       Events:
@@ -199,7 +199,7 @@ Resources:
       - Fn::GetAtt:
         - DeployToS3
         - Outputs.Arn
-      CodeUri: s3://spm-sam-project-deployment/a740d387de908b6645818eaa0369fcf0
+      CodeUri: s3://spm-sam-project-deployment/931166c56ff34e62acd4f78867bb2252
       AutoPublishAlias: production
       Runtime: python3.7
       Handler: deployer.resource_handler

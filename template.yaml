@@ -88,7 +88,7 @@ Resources:
           - AllowedHeaders:
             - "*"
             AllowedMethods:
-              - POST
+              - GET
             AllowedOrigins:
               - !GetAtt WebAssetsS3Bucket.WebsiteURL
             MaxAge: 3600

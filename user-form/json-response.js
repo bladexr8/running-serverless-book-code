@@ -4,7 +4,7 @@ module.exports = function jsonResponse(body) {
         body: JSON.stringify(body),
         headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': ProcessingInstruction.env.CORS_ORIGIN
+            'Access-Control-Allow-Origin': process.env.CORS_ORIGIN
         }
     };
 };

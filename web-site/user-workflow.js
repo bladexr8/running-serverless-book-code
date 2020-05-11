@@ -13,6 +13,7 @@ async function getSignatures(apiUrl) {
 // back using async network request
 function postFormData(url, formData, progress) {
     return new Promise((resolve, reject) => {
+        console.log(`Posting Form Data to ${url}...`);
         const request = new XMLHttpRequest();
         const sendError = (e, label) => {
             console.error(e);
@@ -52,6 +53,8 @@ function uploadBlob(uploadPolicy, fileBlob, progress) {
     Object.keys(uploadPolicy.fields).forEach((key) => 
         formData.append(key, uploadPolicy.fields[key])
     );
+    console.log(`Form Data: ${formData}`);
+    console.log(formData);
     formData.append('file', fileBlob);
     return postFormData(uploadPolicy.url, formData, progress)
         .catch(e => {
@@ -96,11 +99,13 @@ async function pollForResult(url, timeout, times) {
 // show a section of page and hide other sections
 function showStep(label) {
     const sections = Array.from(document.querySelectorAll('[step]'));
+    console.log('Sections:');
+    console.log(sections);
     sections.forEach(section => {
         if (section.getAttribute('step') === label) {
-            section.getElementsByClassName.display = '';
+            section.style.display = '';
         } else {
-            section.getElementsByClassName.display = 'none';
+            section.style.display = 'none';
         }
     });
 };
@@ -120,7 +125,9 @@ function progressNotifier(progressEvent) {
 async function startUpload(evt) {
     const picker = evt.target;
     const file = picker.files && picker.files[0];
-    const apiUrl = document.getElementById('apiUrl').nodeValue;
+    const apiUrl = document.getElementById('apiurl').value;
+
+    console.log(`API Url: ${apiUrl}`);
 
     if (file && file.name) {
         picker.value = '';
@@ -133,10 +140,11 @@ async function startUpload(evt) {
             await pollForResult(signatures.download, 3000, 20);
             const downloadLink = document.getElementById('resultLink');
             downloadLink.setAttribute('href', signatures.download);
+            console.log(`Download Link: ${downloadLink.href}`);
             showStep('result');
         } catch (e) {
             console.error(e);
-            const displayError = e.message || json.stringify(e);
+            const displayError = e.message || JSON.stringify(e);
             document.getElementById('errorText').innerHTML = displayError;
             showStep('error');
         }
