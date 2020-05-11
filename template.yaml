@@ -42,6 +42,10 @@ Parameters:
     Description: Thumbnail width in pixels
     MinValue: 10
     MaxValue: 1000
+  AllowedImageExtensions:
+    Type: String
+    Default: jpg,jpeg,png,gif
+    Description: Comma-delimited list of allowed image file extensions (lowercase)
 
 # Conditions to activate/de-activate resources
 Conditions:
@@ -111,7 +115,7 @@ Resources:
         ShowForm:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
-            Path: /
+            Path: /sign/{extension}
             Method: get
             RestApiId: !Ref WebApi
       Environment:
@@ -120,6 +124,7 @@ Resources:
           UPLOAD_LIMIT_IN_MB: !Ref UploadLimitInMB
           CORS_ORIGIN: !GetAtt WebAssetsS3Bucket.WebsiteURL
           THUMBNAILS_S3_BUCKET: !Ref ThumbnailsS3Bucket
+          ALLOWED_IMAGE_EXTENSIONS: !Ref AllowedImageExtensions
       Policies:
         - S3FullAccessPolicy:
             BucketName: !Ref UploadS3Bucket
