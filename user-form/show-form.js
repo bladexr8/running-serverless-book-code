@@ -16,39 +16,26 @@
  */
 
 const jsonResponse = require('./json-response');
-const buildForm = require('./build-form');
-const aws = require('aws-sdk');
-const s3 = new aws.S3();
-const uploadLimitInMB = parseInt(process.env.UPLOAD_LIMIT_IN_MB);
-
+const errorResponse = require('./error-response');
+const RequestProcessor = require('./request-processor');
+const S3PolicySigner = require('./s3-policy-signer');
 
 exports.lambdaHandler = async (event, context) => {
-    console.log(JSON.stringify(event, null, 2));
-
-    const key = context.awsRequestId + '.png',
-    uploadParams = {
-        Bucket: process.env.UPLOAD_S3_BUCKET,
-        Expires: 300,
-        Conditions: [
-            ['content-length-range', 1, uploadLimitInMB * 1000000]
-        ],
-        Fields: {
-            acl: 'private',
-            key: key
-        }
-    },
-    uploadForm = s3.createPresignedPost(uploadParams);
-
-    downloadParams = {
-        Bucket: process.env.THUMBNAILS_S3_BUCKET,
-        Key: key,
-        Expires: 300
-    },
-    downloadUrl = s3.getSignedUrl('getObject', downloadParams);
-   
-    // send back a pre-built form for S3 upload
-    return jsonResponse({
-        upload: uploadForm,
-        download: downloadUrl
-    });
+    try {
+        const uploadSigner = new S3PolicySigner(process.env.UPLOAD_S3_BUCKET);
+        const downloadSigner = new S3PolicySigner(process.env.THUMBNAILS_S3_BUCKET);
+        const requestProcessor = new RequestProcessor(
+            uploadSigner,
+            downloadSigner,
+            parseInt(process.env.UPLOAD_LIMIT_IN_MB),
+            process.env.ALLOWED_IMAGE_EXTENSIONS.split(',')
+        );
+        const result = requestProcessor.processRequest(
+            context.awsRequestId,
+            event.pathParameters.extension
+        );
+        return jsonResponse(result, process.env.CORS_ORIGIN);
+    } catch (e) {
+        return errorResponse(e, process.env.CORS_ORIGIN);
+    }
 };

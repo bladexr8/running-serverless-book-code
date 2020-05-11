@@ -61,6 +61,12 @@ Resources:
       StageName: !Ref AppStage
       # support CORS from Web Assets S3 Bucket
       Cors: !Sub "'${WebAssetsS3Bucket.WebsiteURL}'"
+      # API Throttling
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 20
+          ThrottlingRateLimit: 10
   # S3 Bucket to persist information with server side encryption
   UploadS3Bucket:
     Type: AWS::S3::Bucket
@@ -144,6 +150,8 @@ Resources:
             Events: s3:ObjectCreated:*
       Timeout: 600
       MemorySize: 1024
+      # limit concurrent executions
+      ReservedConcurrentExecutions: 10
       Environment:
         Variables:
           OUTPUT_BUCKET: !Ref ThumbnailsS3Bucket
